@@ -1,33 +1,49 @@
-// move secret key outside of code later
-
-const stripe = require('stripe')('sk_test_51NMFCRLG1gYd6OyKQOkLtOrI0WbIGJ8Ngtw5op0yZ6faHll3arCGcBsaXGVwf6d3hljaOU4ZxrTyMu9iGusuEVWw00At14bNro');
-
+const AWS = require('aws-sdk');
+const stripe = require('stripe');
 
 exports.handler = async (event) => {
     const headers = {
         'Access-Control-Allow-Origin': '*',
     }
-    if (event.body) {
-        const { cart, totalAmount, shippingFees } = JSON.parse(event.body);
-        try {
-            const paymentIntent = await stripe.paymentIntents.create({
-                amount: totalAmount,
-                currency: 'usd',
-                automatic_payment_methods: {
-                    enabled: true
+
+    try {
+        const ssm = new AWS.SSM();
+        const parameterName = process.env.STRIPE_SECRET_KEY_TEST;
+        const parameterResult = await ssm.getParameter({
+            Name: parameterName,
+            WithDecryption: true,
+        }).promise();
+
+        const clientSecret = parameterResult.Parameter.Value;
+        const stripeClient = stripe(clientSecret);
+        if (event.body) {
+            const { cart, totalAmount, shippingFees } = JSON.parse(event.body);
+            try {
+                const paymentIntent = await stripeClient.paymentIntents.create({
+                    amount: totalAmount,
+                    currency: 'usd',
+                    automatic_payment_methods: {
+                        enabled: true,
+                    }
+                })
+                return {
+                    statusCode: 200,
+                    headers,
+                    body: JSON.stringify(paymentIntent.client_secret),
                 }
-            })
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify(paymentIntent.client_secret),
+            } catch (err) {
+                return {
+                    statusCode: 502,
+                    headers,
+                    body: JSON.stringify(`Error creating paymentIntent: ${err}`),
+                }
             }
-        } catch (err) {
-            return {
-                statusCode: 502,
-                headers,
-                body: JSON.stringify("Server error, please check Stripe integration."),
-            }
+        }
+    } catch (err) {
+        return {
+            statusCode: 502,
+            headers,
+            body: JSON.stringify(`Error retrieving parameter: ${err}`),
         }
     }
     return {
