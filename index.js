@@ -15,7 +15,7 @@ exports.handler = async (event) => {
         }).promise();
 
         const clientSecret = parameterResult.Parameter.Value;
-        const stripeClient = stripe(clientSecret);
+        const stripeClient = stripe(`${clientSecret}`);
         if (event.body) {
             const { cart, totalAmount, shippingFees } = JSON.parse(event.body);
             try {
