@@ -18,9 +18,10 @@ exports.handler = async (event) => {
         const stripeClient = stripe(`${clientSecret}`);
         if (event.body) {
             const { cart, totalAmount, shippingFees } = JSON.parse(event.body);
+            const totalOrderAmount = totalAmount + shippingFees;
             try {
                 const paymentIntent = await stripeClient.paymentIntents.create({
-                    amount: totalAmount,
+                    amount: totalOrderAmount,
                     currency: 'usd',
                     automatic_payment_methods: {
                         enabled: true,
